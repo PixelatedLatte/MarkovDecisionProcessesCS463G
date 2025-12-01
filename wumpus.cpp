@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 using namespace std;
-
 //Defines our types of grid squares, default values are 0, can change the default values of squareType if need be
 enum squareType{
     EMPTY,
@@ -16,6 +15,9 @@ class Grid{
     public:
         squareType type;
         int cost;
+    bool operator ==(const Grid& other) const {
+        return (type == other.type);
+    }
 };
 
 int main(){

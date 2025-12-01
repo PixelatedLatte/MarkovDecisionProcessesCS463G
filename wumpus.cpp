@@ -12,12 +12,12 @@ enum squareType{
 };
 
 //Defines the structure of our grid, having whatever enumerated squareType and a value assigned to that square
-struct Grid{
-    squareType type;
-    int cost;
+class Grid{
+    public:
+        squareType type;
+        int cost;
 };
 
 int main(){
-    
     return 0;
 }

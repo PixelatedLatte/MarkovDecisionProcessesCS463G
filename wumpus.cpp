@@ -8,7 +8,8 @@ void Map1(vector<vector<class Grid>>&);
 void Map2(vector<vector<class Grid>>&);
 
 const int ROWS = 6;
-const int COLS = 5;
+const int COLS = 6;
+const double DISCOUNT_FACTOR = 0.95;
 
 enum squareType {
     EMPTY,
@@ -89,7 +90,35 @@ void Map2(vector<vector<Grid>>& GameBoard) {
     GameBoard[4][2].cost = -10000;
 }
 
+double bestAction(int r, int c, double valueMatrix[ROWS][COLS]) {
+    double up = (r > 0) ? valueMatrix[r - 1][c] : -1e9;
+    double down = (r < ROWS - 1) ? valueMatrix[r + 1][c] : -1e9;
+    double left = (c > 0) ? valueMatrix[r][c - 1] : -1e9;
+    double right = (c < COLS - 1) ? valueMatrix[r][c + 1] : -1e9;
+
+    return max({ up, down, left, right });
+}
+
+void valueIteration(vector<vector<Grid>>& GameBoard, double valueMatrix[ROWS][COLS]){
+    bool converged = false;
+    while (!converged) {
+        converged = true;
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                double oldValue = valueMatrix[i][j];
+                double bestNextValue = bestAction(i, j, valueMatrix);
+                valueMatrix[i][j] = GameBoard[i][j].cost + DISCOUNT_FACTOR * bestNextValue;
+
+                if (abs(oldValue - valueMatrix[i][j]) > 1e-6) {
+                    converged = false;
+                }
+            }
+        }
+    }
+}
+
 int main() {
+    double valueMatrix[ROWS][COLS] = { 0.0 };
     vector<vector<Grid>> GameBoard;
     initializeGrid(GameBoard);
 

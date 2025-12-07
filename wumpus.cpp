@@ -29,11 +29,11 @@ public:
 
 string typeToString(squareType t) {
     switch (t) {
-    case EMPTY: return "EMPTY";
-    case MONEY: return "MONEY";
-    case STINK: return "STINK";
-    case ENTRY: return "ENTRY";
-    case WUMPUS: return "WUMPUS";
+    case EMPTY: return "EM";
+    case MONEY: return "M";
+    case STINK: return "S";
+    case ENTRY: return "EN";
+    case WUMPUS: return "W";
     default: return "UNKNOWN";
     }
 }
@@ -90,7 +90,7 @@ void Map2(vector<vector<Grid>>& GameBoard) {
     GameBoard[4][2].type = WUMPUS;
     GameBoard[4][2].cost = -10000;
 }
-
+/*
 double bestAction(int r, int c, double valueMatrix[ROWS][COLS]) {
     // The possible movements in vector form
     const int dr[4] = { -1, 1, 0, 0 }; //Up, Down
@@ -102,25 +102,32 @@ double bestAction(int r, int c, double valueMatrix[ROWS][COLS]) {
 void valueIteration(int horizon){
 
 }
+*/
+
+void policyIteration(vector<vector<Grid>>& GameBoard, double valueMatrix[ROWS][COLS]) {
+    // Placeholder for policy iteration implementation
+
+}
 
 int main() {
     double valueMatrix[ROWS][COLS] = { 0.0 };
     vector<vector<Grid>> GameBoard;
     initializeGrid(GameBoard);
-
+    /*
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
             cout << "Grid[" << i << "][" << j << "] - Type: " << typeToString(GameBoard[i][j].type)
                 << ", Cost: " << GameBoard[i][j].cost << endl;
         }
     }
+    */
 
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = COLS-1; j > 0; j--) {
-			printf("[%6s]  ", (typeToString(GameBoard[i][j].type).c_str()));
+    for (int i = COLS-1; i >= 0; i--) {
+        for (int j = 0; j < ROWS; j++) {
+			printf("[%3s]  ", (typeToString(GameBoard[j][i].type).c_str()));
         }
 		cout << endl;
 	}
-    cout << "Wumpus World Initialized" << endl;
+    cout << "Wumpus World Initialized!!" << endl;
     return 0;
 }

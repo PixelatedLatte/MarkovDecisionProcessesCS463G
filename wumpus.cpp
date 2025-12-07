@@ -1,9 +1,10 @@
-#include <iostream>
+﻿#include <iostream>
 #include <vector>
 #include <iomanip>
 #include <cmath>
+#include <array>
+#include <tuple>
 using namespace std;
-
 void initializeGrid(vector<vector<class Grid>>&);
 void Map1(vector<vector<class Grid>>&);
 void Map2(vector<vector<class Grid>>&);
@@ -34,6 +35,7 @@ string typeToString(squareType t) {
     case STINK: return "S";
     case ENTRY: return "EN";
     case WUMPUS: return "W";
+
     default: return "UNKNOWN";
     }
 }
@@ -169,10 +171,84 @@ void valuePolicy(vector<vector<Grid>>& GameBoard, double valueMatrix[ROWS][COLS]
     }
 }
 
+string movement(string attemptedMove) {
+    array<string, 3> moveset;
+    array<double, 3> moveProbabilities = { 0.7, 0.15, 0.15 }; // forward, reverse, stall
+
+    if (attemptedMove == "UP") {
+        moveset = { "UP", "DOWN", "STALL" };
+    } else if (attemptedMove == "DOWN") {
+        moveset = { "DOWN", "UP", "STALL" };
+    } else if (attemptedMove == "LEFT") {
+        moveset = { "LEFT", "RIGHT", "STALL" };
+    } else if (attemptedMove == "RIGHT") {
+        moveset = { "RIGHT", "LEFT", "STALL" };
+    } else {
+        return "INVALID";
+    }
+
+    double probability = (double)rand() / RAND_MAX; // random number 0→1
+    double cumulative = 0.0;
+
+    for (int j = 0; j < 3; j++) { 
+        if (probability > moveProbabilities[j]) { 
+            probability = probability - moveProbabilities[j]; 
+        } else { 
+            return moveset[j]; 
+        } 
+    }
+    return "INVALID";
+}
+
+tuple<int, int> applymovement(string appliedMove, vector<vector<Grid>>& GameBoard, int x, int y) {
+	printf("Applying Move: %s at Position (%d, %d)\n", appliedMove.c_str(), x, y);
+    if (x < 0 || x >= COLS || y < 0 || y >= ROWS) {
+        cout << "Out of bounds position!" << endl;
+        return make_tuple(0, 0);
+    }
+
+    if (appliedMove == "STALL") {
+        return make_tuple(x, y);
+    }
+    else if (appliedMove == "DOWN") {
+        y = max(0, y - 1);
+    }
+    else if (appliedMove == "UP") {
+        y = min(ROWS - 1, y + 1);
+    }
+    else if (appliedMove == "LEFT") {
+        x = max(0, x - 1);
+    }
+    else if (appliedMove == "RIGHT") {
+        x = min(COLS - 1, x + 1);
+    }
+	printf("New Position after Move: (%d, %d)\n", x, y);
+    return make_tuple(x, y);
+}
+
+
+void printGrid(vector<vector<Grid>>& GameBoard, int xpos, int ypos) {
+    for (int i = COLS - 1; i >= 0; i--) {
+        for (int j = 0; j < ROWS; j++) {
+            if (j == xpos && i == ypos) {
+                printf("[P%3s]  ", (typeToString(GameBoard[j][i].type).c_str()));
+            }
+            else {
+                printf("[%4s]  ", (typeToString(GameBoard[j][i].type).c_str()));
+            }
+        }
+        cout << endl;
+    }
+}
+
 int main() {
     double valueMatrix[ROWS][COLS] = { 0.0 };
+	int xpos, ypos;
+    xpos = 0;
+	ypos = 0;
     vector<vector<Grid>> GameBoard;
     initializeGrid(GameBoard);
+    srand(time(NULL));
     /*
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
@@ -182,13 +258,17 @@ int main() {
     }
     */
 
-    for (int i = COLS-1; i >= 0; i--) {
-        for (int j = 0; j < ROWS; j++) {
-			printf("[%3s]  ", (typeToString(GameBoard[j][i].type).c_str()));
-        }
-		cout << endl;
-	}
+    printGrid(GameBoard, xpos, ypos);
     cout << "Wumpus World Initialized!!" << endl;
+    string appliedMove = "";
+    for (int i = 0; i <= 5; i++) {
+        appliedMove = movement("UP");
+        tie(xpos, ypos) = applymovement(appliedMove, GameBoard, xpos, ypos);
+        cout << "Applied Move is: " << appliedMove << " Xpos: " << xpos << " Ypos: " << ypos << endl;
+        printGrid(GameBoard, xpos, ypos);
+        cout << endl;
+    }
+
 
     cout << "Testing value iteration of horizon 100..." << endl;
     valueIteration(100, GameBoard, valueMatrix);

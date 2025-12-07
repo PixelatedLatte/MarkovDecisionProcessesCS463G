@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <iomanip>
+#include <cmath>
 using namespace std;
 
 void initializeGrid(vector<vector<class Grid>>&);
@@ -91,30 +92,15 @@ void Map2(vector<vector<Grid>>& GameBoard) {
 }
 
 double bestAction(int r, int c, double valueMatrix[ROWS][COLS]) {
-    double up = (r > 0) ? valueMatrix[r - 1][c] : -1e9;
-    double down = (r < ROWS - 1) ? valueMatrix[r + 1][c] : -1e9;
-    double left = (c > 0) ? valueMatrix[r][c - 1] : -1e9;
-    double right = (c < COLS - 1) ? valueMatrix[r][c + 1] : -1e9;
+    // The possible movements in vector form
+    const int dr[4] = { -1, 1, 0, 0 }; //Up, Down
+    const int dc[4] = { 0, 0, -1, 1 }; //Left, Right
+    double bestValue = -1e9; //Very small number to begin
 
-    return max({ up, down, left, right });
 }
 
-void valueIteration(vector<vector<Grid>>& GameBoard, double valueMatrix[ROWS][COLS]){
-    bool converged = false;
-    while (!converged) {
-        converged = true;
-        for (int i = 0; i < ROWS; i++) {
-            for (int j = 0; j < COLS; j++) {
-                double oldValue = valueMatrix[i][j];
-                double bestNextValue = bestAction(i, j, valueMatrix);
-                valueMatrix[i][j] = GameBoard[i][j].cost + DISCOUNT_FACTOR * bestNextValue;
+void valueIteration(int horizon){
 
-                if (abs(oldValue - valueMatrix[i][j]) > 1e-6) {
-                    converged = false;
-                }
-            }
-        }
-    }
 }
 
 int main() {

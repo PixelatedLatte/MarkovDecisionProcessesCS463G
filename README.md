@@ -9,7 +9,6 @@ With probability 0.15, the car will end up in reverse and go backwards from the 
 
 - Value Iteration
 - Policy Iteration
-- Epsilon Greedy Q Learning
 
 ## Parameters
 

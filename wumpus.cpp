@@ -188,34 +188,6 @@ void valuePolicy(vector<vector<Grid>>& GameBoard, double valueMatrix[ROWS][COLS]
     }
 }
 
-string movement(string attemptedMove) {
-    array<string, 3> moveset;
-    array<double, 3> moveProbabilities = { 0.7, 0.15, 0.15 }; // forward, reverse, stall
-
-    if (attemptedMove == "UP") {
-        moveset = { "UP", "DOWN", "STALL" };
-    } else if (attemptedMove == "DOWN") {
-        moveset = { "DOWN", "UP", "STALL" };
-    } else if (attemptedMove == "LEFT") {
-        moveset = { "LEFT", "RIGHT", "STALL" };
-    } else if (attemptedMove == "RIGHT") {
-        moveset = { "RIGHT", "LEFT", "STALL" };
-    } else {
-        return "INVALID";
-    }
-
-    double probability = (double)rand() / RAND_MAX; // random number 0→1
-    double cumulative = 0.0;
-    for (int j = 0; j < 3; j++) {
-        if (probability > moveProbabilities[j]) {
-            probability = probability - moveProbabilities[j];
-        } else {
-            return moveset[j];
-        }
-    }
-    return "INVALID";
-}
-
 double applymovement(string appliedMove, vector<vector<Grid>>& GameBoard, int x, int y) {
     if (x < 0 || x >= COLS || y < 0 || y >= ROWS) {
         cout << "Out of bounds position!" << endl;
@@ -331,59 +303,36 @@ void policyEvaluation(vector<vector<Grid>>& GameBoard, vector<vector<string>>& p
                 int ypos = j;
 
                 array<string, 4> moves = { "^", "v", "<", ">" };
-                double maxExpectedValue = -1e9;
-                string bestMove = "^";
-
+				array<double, 4> values = { 0.0, 0.0, 0.0, 0.0 };
+                double expectedValue = 0.0;
+                double immediateReward = valueGrid[i][j];
+				int maxindex = 0;
                 for (int k = 0; k < 4; k++) {
                     string attemptedMove = moves[k];
 
-                    double immediateReward = applymovement(attemptedMove, GameBoard, xpos, ypos);
-
-                    int new_x1 = xpos, new_y1 = ypos;
-                    int new_x2 = xpos, new_y2 = ypos;
-                    int new_x3 = xpos, new_y3 = ypos;
-
-                    if (attemptedMove == "^") {
-                        new_y1 = min(ROWS - 1, ypos + 1);
-                        new_y2 = ypos;
-                        new_y3 = max(0, ypos - 1);
-                    }
-                    else if (attemptedMove == "v") {
-                        new_y1 = max(0, ypos - 1);
-                        new_y2 = ypos;
-                        new_y3 = min(ROWS - 1, ypos + 1);
-                    }
-                    else if (attemptedMove == "<") {
-                        new_x1 = max(0, xpos - 1);
-                        new_x2 = xpos;
-                        new_x3 = min(COLS - 1, xpos + 1);
-                    }
-                    else if (attemptedMove == ">") {
-                        new_x1 = min(COLS - 1, xpos + 1);
-                        new_x2 = xpos;
-                        new_x3 = max(0, xpos - 1);
-                    }
-
-                    double futureValue = 0.7 * valueGrid[new_x1][new_y1] +
-                        0.15 * valueGrid[new_x2][new_y2] +
-                        0.15 * valueGrid[new_x3][new_y3];
-
-                    double expectedValue = immediateReward + gamma * futureValue;
-
-                    if (expectedValue > maxExpectedValue) {
-                        maxExpectedValue = expectedValue;
-                        bestMove = attemptedMove;
+                    double nextReward = applymovement(attemptedMove, GameBoard, xpos, ypos);
+					values[k] = nextReward;
+                }
+				cout << values[0] << " " << values[1] << " " << values[2] << " " << values[3] << endl;
+				double maxValue = values[0];
+                for (int m = 1; m < 4; m++) {
+                    if (values[m] > values[maxindex]) {
+                        maxValue = values[m];
+						maxindex = m;
                     }
                 }
+				cout << "Max value: " << maxValue << " for move " << moves[maxindex] << endl;
+                expectedValue += immediateReward + gamma * maxValue;
+                policyGrid[xpos][ypos] = moves[maxindex];
+                newValueGrid[i][j] = expectedValue;
 
-                policyGrid[xpos][ypos] = bestMove;
-                newValueGrid[i][j] = maxExpectedValue;
             }
         }
-
+        
         valueGrid = newValueGrid;
 
-        cout << "\nPolicy and Values after iteration " << step + 1 << ":" << endl;
+
+        cout << "\nPolicy and Values after iteration!! " << step + 1 << ":" << endl;
         printPolicy(policyGrid, valueGrid);
 
     }
@@ -391,7 +340,7 @@ void policyEvaluation(vector<vector<Grid>>& GameBoard, vector<vector<string>>& p
 
 int main() {
     double valueMatrix[ROWS][COLS] = { 0.0 };
-    int xpos = 0, ypos = 0, timeHorizon = 100;
+    int xpos = 0, ypos = 0, timeHorizon = 5;
     double gamma = 0.95;
 
     vector<vector<Grid>> GameBoard;

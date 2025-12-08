@@ -35,11 +35,11 @@ public:
 
 string typeToString(squareType t) {
     switch (t) {
-    case EMPTY: return "EM";
-    case MONEY: return "M";
-    case STINK: return "S";
-    case ENTRY: return "EN";
-    case WUMPUS: return "W";
+    case EMPTY: return "empty";
+    case MONEY: return "MONEY";
+    case STINK: return "STINK";
+    case ENTRY: return "ENTER";
+    case WUMPUS: return "WUMP";
 
     default: return "UNKNOWN";
     }
@@ -271,15 +271,15 @@ double applymovement(string appliedMove, vector<vector<Grid>>& GameBoard, int x,
     return 0.7 * reward1 + 0.15 * reward2 + 0.15 * reward3;
 }
 
-void printGrid(vector<vector<Grid>>& GameBoard, int xpos, int ypos) {
+void printGrid(vector<vector<Grid>> GameBoard, int xpos, int ypos) {
     for (int row = ROWS - 1; row >= 0; row--) {
         for (int col = 0; col < COLS; col++) {
             const string cellType = typeToString(GameBoard[col][row].type);
             if (col == xpos && row == ypos) {
-                printf("[P %2s]  ", cellType.c_str());
+                printf("[P %5s]  ", cellType.c_str());
             }
             else {
-                printf("[%4s]  ", cellType.c_str());
+                printf("[%7s]  ", cellType.c_str());
             }
         }
         cout << endl;
@@ -288,10 +288,12 @@ void printGrid(vector<vector<Grid>>& GameBoard, int xpos, int ypos) {
 }
 
 void printPolicy(vector<vector<string>> policyGrid, vector<vector<double>> valueGrid) {
-    for (int row = ROWS - 1; row >= 0; row--) {
-        for (int col = 0; col < COLS; col++) {
+    // Print policy arrows
+    for (int row = ROWS - 1; row >= 0; row--) {   // y
+        for (int col = 0; col < COLS; col++) {    // x
             if (row == 0 && col == 0) {
                 cout << "[P " << policyGrid[col][row] << " ] ";
+
             }
             else {
                 cout << "[  " << policyGrid[col][row] << " ] ";
@@ -299,14 +301,14 @@ void printPolicy(vector<vector<string>> policyGrid, vector<vector<double>> value
         }
         cout << endl;
     }
-
-    for (int row = ROWS - 1; row >= 0; row--) {
-        for (int col = 0; col < COLS; col++) {
+    // Print values
+    for (int row = ROWS - 1; row >= 0; row--) {   // y
+        for (int col = 0; col < COLS; col++) {    // x
             if (row == 0 && col == 0) {
-                cout << "[P " << setw(6) << valueGrid[col][row] << "] ";
+                cout << "[P " << setw(8) << valueGrid[col][row] << "] ";  // Changed from valueGrid[row][col]
             }
             else {
-                cout << "[ " << setw(7) << valueGrid[col][row] << "] ";
+                cout << "[ " << setw(9) << valueGrid[col][row] << "] ";   // Changed from valueGrid[row][col]
             }
         }
         cout << endl;
@@ -338,7 +340,7 @@ void policyEvaluation(vector<vector<Grid>>& GameBoard, vector<vector<string>>& p
     for (int step = 0; step < timeHorizon; step++) {
         vector<vector<double>> newValueGrid(ROWS, vector<double>(COLS));
 
-        cout << "\n=== Iteration " << step + 1 << " ===" << endl;
+        cout << "Iteration: " << step + 1 << endl;
 
         for (int i = 0; i < ROWS; i++) {
             for (int j = 0; j < COLS; j++) {
@@ -398,10 +400,9 @@ void policyEvaluation(vector<vector<Grid>>& GameBoard, vector<vector<string>>& p
 
         valueGrid = newValueGrid;
 
-        if (step % 10 == 0 || step == timeHorizon - 1) {
-            cout << "\nPolicy and Values after iteration " << step + 1 << ":" << endl;
-            printPolicy(policyGrid, valueGrid);
-        }
+        cout << "\nPolicy and Values after iteration " << step + 1 << ":" << endl;
+        printPolicy(policyGrid, valueGrid);
+
     }
 }
 
@@ -423,7 +424,7 @@ int main() {
 
     policyEvaluation(GameBoard, policyGrid, valueGrid, gamma, timeHorizon);
 
-    cout << "\n=== Final Policy and Values ===" << endl;
+    cout << "\nFinal Policy and Values:" << endl;
     printPolicy(policyGrid, valueGrid);
     printGrid(GameBoard, xpos, ypos);
 

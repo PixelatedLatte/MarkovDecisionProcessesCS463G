@@ -4,7 +4,9 @@
 #include <cmath>
 #include <array>
 #include <tuple>
-
+#include<cmath>
+#include <cstdlib>
+#include <ctime>
 
 using namespace std;
 void initializeGrid(vector<vector<class Grid>>&);
@@ -14,6 +16,7 @@ void Map2(vector<vector<class Grid>>&);
 const int ROWS = 6;
 const int COLS = 6;
 const double DISCOUNT_FACTOR = 0.95;
+const int POLICY_SIZE = 4;
 
 enum squareType {
     EMPTY,
@@ -213,91 +216,202 @@ string movement(string attemptedMove) {
     return "INVALID";
 }
 
-tuple<int, int> applymovement(string appliedMove, vector<vector<Grid>>& GameBoard, int x, int y) {
+double applymovement(string appliedMove, vector<vector<Grid>>& GameBoard, int x, int y) {
 	printf("Applying Move: %s at Position (%d, %d)\n", appliedMove.c_str(), x, y);
     if (x < 0 || x >= COLS || y < 0 || y >= ROWS) {
         cout << "Out of bounds position!" << endl;
-        return make_tuple(0, 0);
+        return -1e9;
     }
 
-    if (appliedMove == "STALL") {
-        return make_tuple(x, y);
+    int new_x1 = x, new_y1 = y;  // intended move (70%)
+    int new_x2 = x, new_y2 = y;  // stay in place (15%)
+    int new_x3 = x, new_y3 = y;  // reverse move (15%)
+
+    if (appliedMove == "^") {
+        new_y1 = min(ROWS - 1, y + 1);
+        new_y2 = y;
+        new_y3 = max(0, y - 1);
     }
-    else if (appliedMove == "DOWN") {
-        y = max(0, y - 1);
+    else if (appliedMove == "v") {
+        new_y1 = max(0, y - 1);
+        new_y2 = y;
+        new_y3 = min(ROWS - 1, y + 1);
     }
-    else if (appliedMove == "UP") {
-        y = min(ROWS - 1, y + 1);
+    else if (appliedMove == "<") {
+        new_x1 = max(0, x - 1);
+        new_x2 = x;
+        new_x3 = min(COLS - 1, x + 1);
     }
-    else if (appliedMove == "LEFT") {
-        x = max(0, x - 1);
+    else if (appliedMove == ">") {
+        new_x1 = min(COLS - 1, x + 1);
+        new_x2 = x;
+        new_x3 = max(0, x - 1);
     }
-    else if (appliedMove == "RIGHT") {
-        x = min(COLS - 1, x + 1);
-    }
-	printf("New Position after Move: (%d, %d)\n", x, y);
-    return make_tuple(x, y);
+
+    double reward1 = GameBoard[new_x1][new_y1].cost;
+    double reward2 = GameBoard[new_x2][new_y2].cost;
+    double reward3 = GameBoard[new_x3][new_y3].cost;
+
+    return 0.7 * reward1 + 0.15 * reward2 + 0.15 * reward3;
 }
 
 
 void printGrid(vector<vector<Grid>>& GameBoard, int xpos, int ypos) {
-    for (int i = COLS - 1; i >= 0; i--) {
-        for (int j = 0; j < ROWS; j++) {
-            if (j == xpos && i == ypos) {
-                printf("[P%3s]  ", (typeToString(GameBoard[j][i].type).c_str()));
+    for (int row = ROWS - 1; row >= 0; row--) {
+        for (int col = 0; col < COLS; col++) {
+            const string cellType = typeToString(GameBoard[col][row].type);
+            if (col == xpos && row == ypos) {
+                printf("[P %2s]  ", cellType.c_str());
             }
             else {
-                printf("[%4s]  ", (typeToString(GameBoard[j][i].type).c_str()));
+                printf("[%4s]  ", cellType.c_str());
             }
         }
         cout << endl;
+    }
+    cout << endl;
+}
+
+void printPolicy(vector<vector<string>> policyGrid, vector<vector<double>> valueGrid) {
+    for (int row = ROWS - 1; row >= 0; row--) {
+        for (int col = 0; col < COLS; col++) {
+            if (row == 0 && col == 0) {
+                cout << "[P " << policyGrid[col][row] << " ] ";
+            }
+            else {
+                cout << "[  " << policyGrid[col][row] << " ] ";
+            }
+        }
+        cout << endl;
+    }
+
+    for (int row = ROWS - 1; row >= 0; row--) {
+        for (int col = 0; col < COLS; col++) {
+            if (row == 0 && col == 0) {
+                cout << "[P " << setw(6) << valueGrid[col][row] << "] ";
+            }
+            else {
+                cout << "[ " << setw(7) << valueGrid[col][row] << "] ";
+            }
+        }
+        cout << endl;
+    }
+}
+
+tuple<vector<vector<string>>, vector<vector<double>>> policyInitialization(vector<vector<Grid>>& GameBoard) {
+    vector<vector<string>> policyGrid(ROWS, vector<string>(COLS));
+    vector<vector<double>> valueGrid(ROWS, vector<double>(COLS));
+    array<string, 4> policy = { "^", "v", "<", ">" };
+
+    for (int row = ROWS - 1; row >= 0; row--) {
+        for (int col = 0; col < COLS; col++) {
+            policyGrid[col][row] = policy[rand() % 4];
+        }
+    }
+
+    for (int row = ROWS - 1; row >= 0; row--) {
+        for (int col = 0; col < COLS; col++) {
+            valueGrid[col][row] = GameBoard[col][row].cost;
+        }
+    }
+
+    printPolicy(policyGrid, valueGrid);
+    return make_tuple(policyGrid, valueGrid);
+}
+
+void policyEvaluation(vector<vector<Grid>>& GameBoard, vector<vector<string>>& policyGrid, vector<vector<double>>& valueGrid, double gamma, int timeHorizon) {
+    for (int step = 0; step < timeHorizon; step++) {
+        vector<vector<double>> newValueGrid(ROWS, vector<double>(COLS));
+
+        cout << "\n=== Iteration " << step + 1 << " ===" << endl;
+
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                int xpos = i;
+                int ypos = j;
+
+                array<string, 4> moves = { "^", "v", "<", ">" };
+                double maxExpectedValue = -1e9;
+                string bestMove = "^";
+
+                for (int k = 0; k < 4; k++) {
+                    string attemptedMove = moves[k];
+
+                    double immediateReward = applymovement(attemptedMove, GameBoard, xpos, ypos);
+
+                    int new_x1 = xpos, new_y1 = ypos;
+                    int new_x2 = xpos, new_y2 = ypos;
+                    int new_x3 = xpos, new_y3 = ypos;
+
+                    if (attemptedMove == "^") {
+                        new_y1 = min(ROWS - 1, ypos + 1);
+                        new_y2 = ypos;
+                        new_y3 = max(0, ypos - 1);
+                    }
+                    else if (attemptedMove == "v") {
+                        new_y1 = max(0, ypos - 1);
+                        new_y2 = ypos;
+                        new_y3 = min(ROWS - 1, ypos + 1);
+                    }
+                    else if (attemptedMove == "<") {
+                        new_x1 = max(0, xpos - 1);
+                        new_x2 = xpos;
+                        new_x3 = min(COLS - 1, xpos + 1);
+                    }
+                    else if (attemptedMove == ">") {
+                        new_x1 = min(COLS - 1, xpos + 1);
+                        new_x2 = xpos;
+                        new_x3 = max(0, xpos - 1);
+                    }
+
+                    double futureValue = 0.7 * valueGrid[new_x1][new_y1] +
+                        0.15 * valueGrid[new_x2][new_y2] +
+                        0.15 * valueGrid[new_x3][new_y3];
+
+                    double expectedValue = immediateReward + gamma * futureValue;
+
+                    if (expectedValue > maxExpectedValue) {
+                        maxExpectedValue = expectedValue;
+                        bestMove = attemptedMove;
+                    }
+                }
+
+                policyGrid[xpos][ypos] = bestMove;
+                newValueGrid[i][j] = maxExpectedValue;
+            }
+        }
+
+        valueGrid = newValueGrid;
+
+        if (step % 10 == 0 || step == timeHorizon - 1) {
+            cout << "\nPolicy and Values after iteration " << step + 1 << ":" << endl;
+            printPolicy(policyGrid, valueGrid);
+        }
     }
 }
 
 int main() {
     double valueMatrix[ROWS][COLS] = { 0.0 };
-	int xpos, ypos;
-    xpos = 0;
-	ypos = 0;
+    int xpos = 0, ypos = 0, timeHorizon = 100;
+    double gamma = 0.95;
+
     vector<vector<Grid>> GameBoard;
     initializeGrid(GameBoard);
+    Map1(GameBoard);
     srand(time(NULL));
-    /*
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            cout << "Grid[" << i << "][" << j << "] - Type: " << typeToString(GameBoard[i][j].type)
-                << ", Cost: " << GameBoard[i][j].cost << endl;
-        }
-    }
-    */
 
-    // printGrid(GameBoard, xpos, ypos);
-    // cout << "Wumpus World Initialized!!" << endl;
-    // string appliedMove = "";
-    // for (int i = 0; i <= 5; i++) {
-    //     appliedMove = movement("UP");
-    //     tie(xpos, ypos) = applymovement(appliedMove, GameBoard, xpos, ypos);
-    //     cout << "Applied Move is: " << appliedMove << " Xpos: " << xpos << " Ypos: " << ypos << endl;
-    //     printGrid(GameBoard, xpos, ypos);
-    //     cout << endl;
-    // }
+    printGrid(GameBoard, xpos, ypos);
+    cout << "Wumpus World Initialized!!" << endl;
 
-    cout << "Testing value iteration of horizon 50..." << endl;
-    valueIteration(50, GameBoard, valueMatrix);
-    for (int i = COLS - 1; i >= 0; i--) {
-        for (int j = 0; j < ROWS; j++) {
-            cout << fixed << setprecision(2) << setw(8) << valueMatrix[j][i] << " ";
-        }
-        cout << endl;
-    }
-    vector<vector<string>> policy(ROWS, vector<string>(COLS, ""));
-    cout << "Determining optimal policy from value iteration..." << endl;
-    valuePolicy(GameBoard, valueMatrix, &policy);
-    for (int i = COLS - 1; i >= 0; i--) {
-        for (int j = 0; j < ROWS; j++) {
-            cout << setw(6) << policy[j][i] << " ";
-        }
-        cout << endl;
-    }
+    vector<vector<string>> policyGrid;
+    vector<vector<double>> valueGrid;
+    tie(policyGrid, valueGrid) = policyInitialization(GameBoard);
+
+    policyEvaluation(GameBoard, policyGrid, valueGrid, gamma, timeHorizon);
+
+    cout << "\n=== Final Policy and Values ===" << endl;
+    printPolicy(policyGrid, valueGrid);
+    printGrid(GameBoard, xpos, ypos);
+
     return 0;
 }

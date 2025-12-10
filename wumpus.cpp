@@ -49,8 +49,8 @@ void initializeGrid(vector<vector<Grid>>& GameBoard) {
     GameBoard.resize(ROWS, vector<Grid>(COLS));
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
-            GameBoard[i][j].type = EMPTY;
-            GameBoard[i][j].cost = 0;
+            GameBoard[j][i].type = EMPTY;
+            GameBoard[j][i].cost = 0;
         }
     }
     Map1(GameBoard);
@@ -99,93 +99,29 @@ void Map2(vector<vector<Grid>>& GameBoard) {
     GameBoard[4][2].cost = -10000;
 }
 
-double nextAction(int r, int c, int action, double valueMatrix[ROWS][COLS], vector<vector<Grid>>& GameBoard) {
-    // The possible movements in vector form
-    const int dr[4] = { -1, 1, 0, 0 }; //Up, Down
-    const int dc[4] = { 0, 0, -1, 1 }; //Left, Right
+double nextAction(int r, int c, int action, vector<vector<double>> valueMatrix, vector<vector<Grid>> GameBoard) {
+    // Directions match your indexing
+    const int dc[4] = { -1,  1,  0,  0 }; // left, right
+    const int dr[4] = {  0,  0,  1, -1 }; // up, down  (row increases upward)
 
-    //Reverse action of the one we are evluating, for the 15% chance to take the reverse action
+    // Reverse action
     int rev = (action % 2 == 0) ? action + 1 : action - 1;
 
-    int nr = r + dr[action];
     int nc = c + dc[action];
+    int nr = r + dr[action];
 
-    int rr = r + dr[rev];
     int rc = c + dc[rev];
+    int rr = r + dr[rev];
 
-    //For if the move is valid or not, forward or reversed
-    bool reverseInvalid = (rr < 0 || rr >= ROWS || rc < 0 || rc >= COLS);
-    bool forwardInvalid = (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS);
+    // Clamp to boundaries
+    if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) { nc = c; nr = r; }
+    if (rc < 0 || rc >= COLS || rr < 0 || rr >= ROWS) { rc = c; rr = r; }
 
-    if(reverseInvalid){
-        rr = r;
-        rc = c;
-    }
+    double stay  = GameBoard[c][r].cost + DISCOUNT_FACTOR * valueMatrix[c][r];
+    double move  = GameBoard[nc][nr].cost + DISCOUNT_FACTOR * valueMatrix[nc][nr];
+    double revMv = GameBoard[rc][rr].cost + DISCOUNT_FACTOR * valueMatrix[rc][rr];
 
-    if(forwardInvalid){
-        nr = r;
-        nc = c;
-    }
-
-    auto futureV = [&](int rr, int rc) -> double{
-        if (GameBoard[rr][rc].type == WUMPUS){
-            return -10000.0;
-        }
-        return valueMatrix[rr][rc];
-    };
-
-    auto reward = [&](int rr, int rc) -> double {
-        if (GameBoard[rr][rc].type == WUMPUS) return -10000.0;
-        return GameBoard[rr][rc].cost;   // cost of stepping onto that square
-    };
-
-    double stay = reward(r, c) + DISCOUNT_FACTOR * futureV(r,c);
-    double move = reward(nr, nc) + DISCOUNT_FACTOR * futureV(nr, nc);
-    double revMove = reward(rr, rc) + DISCOUNT_FACTOR * futureV(rr, rc);
-
-    return 0.7*move + 0.15*revMove + 0.15*stay;
-}
-
-void valueIteration(int horizon, vector<vector<Grid>>& GameBoard, double valueMatrix[ROWS][COLS]){
-    double newMatrix[ROWS][COLS] = { 0.0 };
-    for (int i = 1; i <= horizon; i++){
-        for (int r = 0; r < ROWS; r++){
-            for (int c = 0; c < COLS; c++){
-                double bestValue = -1e9;
-
-                if (GameBoard[r][c].type == WUMPUS) {
-                    newMatrix[r][c] = -10000.0;
-                    continue;
-                }
-
-                for (int action = 0; action < 4; action++){
-                    double expectedValue = nextAction(r, c, action, valueMatrix, GameBoard);
-                    bestValue = max(bestValue, expectedValue);
-                }
-                newMatrix[r][c] = bestValue;
-            }
-        }
-        memcpy(valueMatrix, newMatrix, sizeof(newMatrix));
-    }
-}
-
-void valuePolicy(vector<vector<Grid>>& GameBoard, double valueMatrix[ROWS][COLS], vector<vector<string>>* policy) {
-    string moves[4] = { "^", "v", "<", ">"};
-    for (int r = 0; r < ROWS; r++) {
-        for (int c = 0; c < COLS; c++) {
-            double bestValue = -1e9;
-            int bestAction = -1;
-            
-            for (int action = 0; action < 4; action++) {
-                double expectedValue = nextAction(r, c, action, valueMatrix, GameBoard);
-                if (expectedValue > bestValue) {
-                    bestValue = expectedValue;
-                    bestAction = action;
-                }
-            }
-            (*policy)[r][c] = (bestAction >= 0) ? moves[bestAction] : "X";
-        }
-    }
+    return 0.7 * move + 0.15 * revMv + 0.15 * stay;
 }
 
 string movement(string attemptedMove) {
@@ -298,6 +234,64 @@ void printPolicy(vector<vector<string>> policyGrid, vector<vector<double>> value
     }
 }
 
+void valuePolicy(vector<vector<Grid>>& GameBoard, vector<vector<double>>& valueMatrix, vector<vector<string>>& policy) {
+    string moves[4] = { "<", ">", "^", "v" };
+    const int dc[4] = { -1, 1, 0, 0 };  // Up, Down
+    const int dr[4] = { 0, 0, -1, 1 };  // Left, Right
+    
+    
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            double bestValue = -1e9;
+            int bestAction = 2;//Up unless otherwise, greedy choice
+            // Check each direction and pick the one with highest value
+            for (int action = 0; action < 4; action++) {
+                double actionValue = nextAction(r, c, action, valueMatrix, GameBoard);
+                //cout << "Action Value at " << (c ) << "," << (r) << " for action " << moves[action] << " is " << actionValue << endl;
+                // Pick action leading to highest value
+                if (actionValue > bestValue) {
+                    bestValue = actionValue;
+                    bestAction = action;
+                }else if (fabs(actionValue - bestValue) < 1e-9) {
+                    if (action % 2 == 0)  
+                        bestAction = action;
+                }
+            }
+            //Prints best action for each cell, it is an X if something seriously wrong has happened
+            policy[c][r] = (bestAction >= 0) ? moves[bestAction] : "X";
+        }
+    }
+}
+
+void valueIteration(int horizon, vector<vector<Grid>> GameBoard, vector<vector<double>>& valueMatrix, vector<vector<string>>& policy) {
+    vector<vector<double>> newMatrix(COLS, vector<double>(ROWS, 0.0));
+    
+    //Initialize valueMatrix
+    for (int r = 0; r < ROWS; r++) {
+        for (int c = 0; c < COLS; c++) {
+            valueMatrix[c][r] = GameBoard[c][r].cost;
+        }
+    }
+    for (int i = 1; i <= horizon; i++) {
+        for (int r = 0; r < ROWS; r++) {
+            for (int c = 0; c < COLS; c++) {
+                // if (GameBoard[r][c].type == MONEY || GameBoard[r][c].type == WUMPUS) {
+                //     newMatrix[r][c] = GameBoard[r][c].cost;
+                //     continue;
+                // }
+                double bestValue = -1e9;
+                for (int action = 0; action < 4; action++) {
+                    double expectedValue = nextAction(r, c, action, valueMatrix, GameBoard);
+                    bestValue = max(bestValue, expectedValue);
+                }
+                newMatrix[c][r] = bestValue;
+            }
+        }
+        // Update valueMatrix properly (since it's a reference)
+        valueMatrix.assign(newMatrix.begin(), newMatrix.end());
+    }
+}
+
 tuple<vector<vector<string>>, vector<vector<double>>> policyInitialization(vector<vector<Grid>>& GameBoard) {
     vector<vector<string>> policyGrid(ROWS, vector<string>(COLS));
     vector<vector<double>> valueGrid(ROWS, vector<double>(COLS));
@@ -391,18 +385,29 @@ void policyEvaluation(vector<vector<Grid>>& GameBoard, vector<vector<string>>& p
 }
 
 int main() {
-    double valueMatrix[ROWS][COLS] = { 0.0 };
     int xpos = 0, ypos = 0, timeHorizon = 100;
     double gamma = 0.95;
 
     vector<vector<Grid>> GameBoard;
     initializeGrid(GameBoard);
-    Map1(GameBoard);
     srand(time(NULL));
 
     printGrid(GameBoard, xpos, ypos);
     cout << "Wumpus World Initialized!!" << endl;
 
+    vector<vector<string>> policy(COLS, vector<string>(ROWS, ""));
+    vector<vector<string>> policy2(COLS, vector<string>(ROWS, ""));
+    vector<vector<double>> valueMatrix(COLS, vector<double>(ROWS, 0.0));
+    vector<vector<double>> valueMatrix2(COLS, vector<double>(ROWS, 0.0));
+    valueIteration(50, GameBoard, valueMatrix, policy);
+    valuePolicy(GameBoard, valueMatrix, policy);
+    printPolicy(policy, valueMatrix);
+
+    valueIteration(100, GameBoard, valueMatrix2, policy2);
+    valuePolicy(GameBoard, valueMatrix2, policy2);
+    printPolicy(policy2, valueMatrix2);
+
+/*
     vector<vector<string>> policyGrid;
     vector<vector<double>> valueGrid;
     tie(policyGrid, valueGrid) = policyInitialization(GameBoard);
@@ -412,6 +417,6 @@ int main() {
     cout << "\n=== Final Policy and Values ===" << endl;
     printPolicy(policyGrid, valueGrid);
     printGrid(GameBoard, xpos, ypos);
-
+*/
     return 0;
 }

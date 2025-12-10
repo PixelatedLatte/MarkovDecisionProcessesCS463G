@@ -82,11 +82,11 @@ void Map2(vector<vector<Grid>>& GameBoard) {
     GameBoard[0][3].type = MONEY;
     GameBoard[0][3].cost = -5;
 
-    GameBoard[1][4].type = MONEY;
-    GameBoard[1][4].cost = 10;
+    GameBoard[1][5].type = MONEY;
+    GameBoard[1][5].cost = 10;
 
-    GameBoard[4][1].type = MONEY;
-    GameBoard[4][1].cost = -20;
+    GameBoard[5][1].type = MONEY;
+    GameBoard[5][1].cost = -20;
 
     GameBoard[0][0].type = ENTRY;
 
@@ -344,41 +344,51 @@ void PolicyImprovement(vector<vector<Grid>>& GameBoard, vector<vector<string>>& 
 }
 
 int main() {
-    double valueMatrix[ROWS][COLS] = { 0.0 };
-    int xpos = 0, ypos = 0, timeHorizon1 = 50, timeHorizon2 = 100;
-
-    vector<vector<Grid>> GameBoard;
-    initializeGrid(GameBoard);
-    Map1(GameBoard);
     srand(time(NULL));
 
-    printGrid(GameBoard, xpos, ypos);
-    cout << "Wumpus World Initialized!!" << endl;
+    vector<int> horizons = { 50, 100 };
+    vector<pair<string, void(*)(vector<vector<Grid>>&)>> maps = {
+        {"Map1", Map1}
+        //,{"Map2", Map2}
+    };
 
-    // Initialize policy and value grids using tie
-    vector<vector<string>> policyGrid;
-    vector<vector<double>> valueGrid;
-    tie(policyGrid, valueGrid) = policyInitialization(GameBoard);
+    vector<vector<Grid>> GameBoard;
 
-    // Run Policy Iteration
-    PolicyImprovement(GameBoard, policyGrid, valueGrid, timeHorizon1);
-
-    cout << "\nFinal Policy and Values for Time Horizon 50:" << endl;
-    printPolicy(policyGrid, valueGrid);
-    //printGrid(GameBoard, xpos, ypos);
-
+    // Initialize and display the world
     initializeGrid(GameBoard);
     Map1(GameBoard);
-    tie(policyGrid, valueGrid) = policyInitialization(GameBoard);
+    printGrid(GameBoard, 0, 0);
+    cout << "Wumpus World Initialized!!\n" << endl;
 
-    cout << "\nRe-initialized Policy and Values for Time Horizon 100:" << endl;
+    // Run Policy Iteration for all combinations
+    for (const auto& [mapName, mapFunc] : maps) {
+        for (int horizon : horizons) {
+            cout << endl << "Policy Iteration Results for " << mapName << " with time horizon " << horizon << endl;
 
-    PolicyImprovement(GameBoard, policyGrid, valueGrid, timeHorizon2);
+            initializeGrid(GameBoard);
+            mapFunc(GameBoard);
 
-    cout << "\nFinal Policy and Values for Time Horizon 100:" << endl;
-    printPolicy(policyGrid, valueGrid);
-    //printGrid(GameBoard, xpos, ypos);
-    printf("Wumpus World Completed!!!\n");
+            vector<vector<string>> policyGrid;
+            vector<vector<double>> valueGrid;
+            tie(policyGrid, valueGrid) = policyInitialization(GameBoard);
 
+            PolicyImprovement(GameBoard, policyGrid, valueGrid, horizon);
+            printPolicy(policyGrid, valueGrid);
+
+			cout << endl << "Value Iteration Results for " << mapName << " with time horizon " << horizon << endl;
+
+            initializeGrid(GameBoard);
+            mapFunc(GameBoard);
+
+            tie(policyGrid, valueGrid) = policyInitialization(GameBoard);
+
+			valueIteration(horizon, GameBoard, valueGrid, policyGrid);
+			valuePolicy(GameBoard, valueGrid, policyGrid);
+			printPolicy(policyGrid, valueGrid);
+        }
+        cout << endl;
+    }
+
+    cout << "Wumpus World Completed!!!" << endl;
     return 0;
 }

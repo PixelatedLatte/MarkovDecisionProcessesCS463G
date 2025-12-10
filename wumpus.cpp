@@ -7,7 +7,7 @@
 #include<cmath>
 #include <cstdlib>
 #include <ctime>
-
+// Initialize packages, namespaces, and constants values + declarations
 using namespace std;
 void initializeGrid(vector<vector<class Grid>>&);
 void Map1(vector<vector<class Grid>>&);
@@ -19,6 +19,7 @@ const double DISCOUNT_FACTOR = 0.95;
 const int POLICY_SIZE = 4;
 int PolicyCheck = 0;
 
+// Define state types
 enum squareType {
     EMPTY,
     MONEY,
@@ -27,6 +28,7 @@ enum squareType {
     WUMPUS
 };
 
+// Define Grid class
 class Grid {
 public:
     squareType type;
@@ -34,6 +36,7 @@ public:
     string name;
 };
 
+// Convert squareType to string for display, focus on non-empty spaces
 string typeToString(squareType t) {
     switch (t) {
     case EMPTY: return "empty";
@@ -46,6 +49,7 @@ string typeToString(squareType t) {
     }
 }
 
+// Initialize the game board with empty grids and set up the map
 void initializeGrid(vector<vector<Grid>>& GameBoard) {
     GameBoard.resize(ROWS, vector<Grid>(COLS));
     for (int i = 0; i < ROWS; i++) {
@@ -54,9 +58,9 @@ void initializeGrid(vector<vector<Grid>>& GameBoard) {
             GameBoard[j][i].cost = 0;
         }
     }
-    //Map2(GameBoard); // Uncomment to use Map2
 }
 
+// Define Map 1 configuration, locations of money, wumpus, stinks, and entry point
 void Map1(vector<vector<Grid>>& GameBoard) {
     GameBoard[4][4].type = MONEY;
     GameBoard[4][4].cost = 1800;
@@ -72,6 +76,7 @@ void Map1(vector<vector<Grid>>& GameBoard) {
     GameBoard[4][2].cost = -10000;
 }
 
+// Define Map 2 configuration, locations of money, wumpus, stinks, and entry point
 void Map2(vector<vector<Grid>>& GameBoard) {
     GameBoard[4][4].type = MONEY;
     GameBoard[4][4].cost = 1700;
@@ -99,8 +104,7 @@ void Map2(vector<vector<Grid>>& GameBoard) {
     GameBoard[4][2].cost = -10000;
 }
 
-double nextAction(int r, int c, int action, vector<vector<double>>& valueMatrix, vector<vector<Grid>>& GameBoard)
-{
+double nextAction(int r, int c, int action, vector<vector<double>>& valueMatrix, vector<vector<Grid>>& GameBoard) {
     // Directions match your indexing
     const int dc[4] = { -1,  1,  0,  0 }; // left, right
     const int dr[4] = { 0,  0,  1, -1 }; // up, down  (row increases upward)
@@ -198,7 +202,7 @@ void printGrid(vector<vector<Grid>> GameBoard, int xpos, int ypos) {
 }
 
 void printPolicy(vector<vector<string>> policyGrid, vector<vector<double>> valueGrid) {
-    // Print policy arrows
+	// Print policy arrows, with player position marked for reference
     for (int row = ROWS - 1; row >= 0; row--) {   // y
         for (int col = 0; col < COLS; col++) {    // x
             if (row == 0 && col == 0) {
@@ -211,7 +215,7 @@ void printPolicy(vector<vector<string>> policyGrid, vector<vector<double>> value
         }
         cout << endl;
     }
-    // Print values
+	// Print value grid, with player position marked for reference
     for (int row = ROWS - 1; row >= 0; row--) {   // y
         for (int col = 0; col < COLS; col++) {    // x
             if (row == 0 && col == 0) {
@@ -225,6 +229,7 @@ void printPolicy(vector<vector<string>> policyGrid, vector<vector<double>> value
     }
 }
 
+// For POLICY ITERATION ONLY, initialize random policy grid and value grid matching current map costs
 tuple<vector<vector<string>>, vector<vector<double>>> policyInitialization(vector<vector<Grid>>& GameBoard) {
     vector<vector<string>> policyGrid(COLS, vector<string>(ROWS));
     vector<vector<double>> valueGrid(COLS, vector<double>(ROWS));
@@ -236,16 +241,16 @@ tuple<vector<vector<string>>, vector<vector<double>>> policyInitialization(vecto
             valueGrid[col][row] = GameBoard[col][row].cost;
         }
     }
-
-    //printPolicy(policyGrid, valueGrid);
     return make_tuple(policyGrid, valueGrid);
 }
 
+// Calculate expected value of taking an action from a given state
 double policyValue(string action, int col, int row, vector<vector<double>>& valueGrid) {
-    int x1 = col, y1 = row;  // intended (70%)
-    int x2 = col, y2 = row;  // stay (15%)
-    int x3 = col, y3 = row;  // reverse (15%)
+    int x1 = col, y1 = row; 
+    int x2 = col, y2 = row;  
+	int x3 = col, y3 = row;  // Initialize to current position 
 
+	// If action pushes against boundary, stay in place, otherwise move accordingly
     if (action == "^") {
         y1 = min(ROWS - 1, row + 1);
         y2 = row;
@@ -267,87 +272,79 @@ double policyValue(string action, int col, int row, vector<vector<double>>& valu
         x3 = max(0, col - 1);
     }
 
+	// Return expected value based on transition probabilities (70% intended, 15% stall, 15% opposite direction)
     return 0.7 * valueGrid[x1][y1] + 0.15 * valueGrid[x2][y2] + 0.15 * valueGrid[x3][y3];
 }
 
+// Evaluate the current policy over a specified time horizon
 void policyEvaluation(vector<vector<Grid>>& GameBoard, vector<vector<string>>& policyGrid, vector<vector<double>>& valueGrid, int timeHorizon) {
-
+	// Does NOT modify current policy, only updates value grid based on it
+	// Reset value grid to initialized costs
     for (int row = 0; row < ROWS; row++) {
         for (int col = 0; col < COLS; col++) {
             valueGrid[col][row] = GameBoard[col][row].cost;
         }
     }
-    for (int t = 0; t < timeHorizon; t++) {
+	// Iterate to update value grid based on current policy
+	for (int t = 0; t < timeHorizon; t++) { // For each time step (movement)
         vector<vector<double>> newValueGrid = valueGrid;
-        for (int row = 0; row < ROWS; row++) {
+        for (int row = 0; row < ROWS; row++) { // For each state
             for (int col = 0; col < COLS; col++) {
-                string action = policyGrid[col][row];
-                double expectedValue = policyValue(action, col, row, valueGrid);
-                newValueGrid[col][row] = GameBoard[col][row].cost + (DISCOUNT_FACTOR * expectedValue);
+				string action = policyGrid[col][row]; // Get action from current policy in said state
+				double expectedValue = policyValue(action, col, row, valueGrid); // Calculate expected value of taking that action
+                // Update value grid with new value (state value + discounted * expected value)
+				newValueGrid[col][row] = GameBoard[col][row].cost + (DISCOUNT_FACTOR * expectedValue); 
             }
         }
-
         valueGrid = newValueGrid;
-        //printPolicy(policyGrid, valueGrid);
     }
 }
 
+// Improve the policy based on the evaluated value grid
 void PolicyImprovement(vector<vector<Grid>>& GameBoard, vector<vector<string>>& policyGrid, vector<vector<double>>& valueGrid, int timeHorizon) {
+	// Initialize policy to not stable, as well as posible actions for each state
     bool policyStable = false;
     array<string, 4> policy = { "^", "v", "<", ">" };
-
+    // While theres still policy improvement to be made
     while (!policyStable) {
-        // PHASE 1: Policy Evaluation
+		// Evaluate current policy
         policyEvaluation(GameBoard, policyGrid, valueGrid, timeHorizon);
-        //printPolicy(policyGrid, valueGrid);
-        //cout << "Policy Improvement Iteration: " << ++PolicyCheck << endl;
+		// Create temp policy grid to store improvements + assume stable unless change found
         vector<vector<string>> newPolicyGrid = policyGrid;
-        // PHASE 2: Policy Improvement
         policyStable = true;
-        for (int row = 0; row < ROWS; row++) {
+		for (int row = 0; row < ROWS; row++) { // Iterate through each state
             for (int col = 0; col < COLS; col++) {
-                string oldAction = policyGrid[col][row];
+				string oldAction = policyGrid[col][row]; // Get current action from policy and compute its value
                 double maxValue = GameBoard[col][row].cost + (policyValue(oldAction, col, row, valueGrid) * DISCOUNT_FACTOR);
-                string bestAction = oldAction;
-
-
+				string bestAction = oldAction; // Initialize best action as current action
                 // Try all actions
-                for (int p = 0; p < POLICY_SIZE; p++) {
+				for (int p = 0; p < POLICY_SIZE; p++) { // compute value for each possible action
                     string action = policy[p];
                     double expectedValue = policyValue(action, col, row, valueGrid);
                     double replacementValue = GameBoard[col][row].cost + (DISCOUNT_FACTOR * expectedValue);
-                    //cout << "Action : " << action << " gives value: " << replacementValue << endl;
-                    if (replacementValue > maxValue) {
+					if (replacementValue > maxValue) { // If better action found, update best action and max value
                         maxValue = replacementValue;
                         bestAction = action;
                     }
                 }
-
-                // Update policy if better action found
+                // Update temp grid policy if better action found
                 if (bestAction != oldAction) {
-                    //cout << "Policy updated at (" << col << "," << row << "): ";
-                    //cout << "Old action: " << oldAction << "Gave value of: " << valueGrid[col][row] << " New action: " << bestAction << " with value: " << maxValue << " at (" << col << "," << row << ")" << endl;
-                    //printPolicy(policyGrid, valueGrid);
                     newPolicyGrid[col][row] = bestAction;
-
-
                     policyStable = false;
                 }
             }
         }
         policyGrid = newPolicyGrid;
-
-        //printPolicy(policyGrid, valueGrid);
     }
 }
 
 int main() {
-    srand(time(NULL));
+	srand(time(NULL)); // Seed random number generator
 
-    vector<int> horizons = { 50, 100 };
+	vector<int> horizons = { 50, 100 }; // Time horizons to test
     vector<pair<string, void(*)(vector<vector<Grid>>&)>> maps = {
         {"Map1", Map1}
-        //,{"Map2", Map2}
+		//,{"Map2", Map2} // Uncomment to include Map2
     };
 
     vector<vector<Grid>> GameBoard;
@@ -358,7 +355,7 @@ int main() {
     printGrid(GameBoard, 0, 0);
     cout << "Wumpus World Initialized!!\n" << endl;
 
-    // Run Policy Iteration for all combinations
+	// Run Policy Iteration and Value Iteration for all combinations of maps (currently only 1 map) and horizons
     for (const auto& [mapName, mapFunc] : maps) {
         for (int horizon : horizons) {
             cout << endl << "Policy Iteration Results for " << mapName << " with time horizon " << horizon << endl;

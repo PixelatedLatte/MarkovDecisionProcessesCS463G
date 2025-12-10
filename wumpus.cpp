@@ -281,13 +281,12 @@ double policyValue(string action, int col, int row, vector<vector<double>>& valu
 }
 
 void policyEvaluation(vector<vector<Grid>>& GameBoard, vector<vector<string>>& policyGrid, vector<vector<double>>& valueGrid, int timeHorizon) {
-    /*
+    
     for (int row = 0; row < ROWS; row++) {
         for (int col = 0; col < COLS; col++) {
             valueGrid[col][row] = GameBoard[col][row].cost;
         }
     }
-    */
     for (int t = 0; t < timeHorizon; t++) {
         vector<vector<double>> newValueGrid = valueGrid;
         for (int row = 0; row < ROWS; row++) {

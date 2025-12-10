@@ -118,9 +118,9 @@ double nextAction(int r, int c, int action, vector<vector<double>>& valueMatrix,
     if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) { nc = c; nr = r; }
     if (rc < 0 || rc >= COLS || rr < 0 || rr >= ROWS) { rc = c; rr = r; }
 
-    double stay = GameBoard[c][r].cost + DISCOUNT_FACTOR * valueMatrix[c][r];
-    double move = GameBoard[nc][nr].cost + DISCOUNT_FACTOR * valueMatrix[nc][nr];
-    double revMv = GameBoard[rc][rr].cost + DISCOUNT_FACTOR * valueMatrix[rc][rr];
+	double stay = valueMatrix[c][r];
+    double move = valueMatrix[nc][nr];
+    double revMv = valueMatrix[rc][rr];
 
     return 0.7 * move + 0.15 * revMv + 0.15 * stay;
 }
@@ -167,13 +167,11 @@ void valueIteration(int horizon, vector<vector<Grid>> GameBoard, vector<vector<d
     for (int i = 1; i <= horizon; i++) {
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
-                // if (GameBoard[r][c].type == MONEY || GameBoard[r][c].type == WUMPUS) {
-                //     newMatrix[r][c] = GameBoard[r][c].cost;
-                //     continue;
-                // }
+
                 double bestValue = -1e9;
                 for (int action = 0; action < 4; action++) {
                     double expectedValue = nextAction(r, c, action, valueMatrix, GameBoard);
+					expectedValue = GameBoard[c][r].cost + (DISCOUNT_FACTOR * expectedValue);
                     bestValue = max(bestValue, expectedValue);
                 }
                 newMatrix[c][r] = bestValue;

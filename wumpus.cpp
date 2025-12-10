@@ -18,7 +18,7 @@ const int COLS = 6;
 const double DISCOUNT_FACTOR = 0.95;
 const int POLICY_SIZE = 4;
 int PolicyCheck = 0;
-
+// Define square types for the different grid squares
 enum squareType {
     EMPTY,
     MONEY,
@@ -26,7 +26,7 @@ enum squareType {
     ENTRY,
     WUMPUS
 };
-
+// Grid class definition
 class Grid {
 public:
     squareType type;
@@ -98,39 +98,33 @@ void Map2(vector<vector<Grid>>& GameBoard) {
     GameBoard[4][2].type = WUMPUS;
     GameBoard[4][2].cost = -10000;
 }
-
-double nextAction(int r, int c, int action, vector<vector<double>>& valueMatrix, vector<vector<Grid>>& GameBoard)
-{
+// Function to calculate expected value of taking an action from (r, c)
+double nextAction(int r, int c, int action, vector<vector<double>>& valueMatrix, vector<vector<Grid>>& GameBoard){
     // Directions match your indexing
     const int dc[4] = { -1,  1,  0,  0 }; // left, right
     const int dr[4] = { 0,  0,  1, -1 }; // up, down  (row increases upward)
-
     // Reverse action
     int rev = (action % 2 == 0) ? action + 1 : action - 1;
-
+    //Next action given you go forward
     int nc = c + dc[action];
     int nr = r + dr[action];
-
+    //Next action given you go in the reverse direction
     int rc = c + dc[rev];
     int rr = r + dr[rev];
-
     // Clamp to boundaries
     if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) { nc = c; nr = r; }
     if (rc < 0 || rc >= COLS || rr < 0 || rr >= ROWS) { rc = c; rr = r; }
-
+    //Values from the valueMatrix for stay, move, and reverse moves
 	double stay = valueMatrix[c][r];
     double move = valueMatrix[nc][nr];
     double revMv = valueMatrix[rc][rr];
-
     return 0.7 * move + 0.15 * revMv + 0.15 * stay;
 }
-
+// Creates a policy from a valueMatrix by choosing the best action at each state
 void valuePolicy(vector<vector<Grid>>& GameBoard, vector<vector<double>>& valueMatrix, vector<vector<string>>& policy) {
     string moves[4] = { "<", ">", "^", "v" };
     const int dc[4] = { -1, 1, 0, 0 };  // Up, Down
     const int dr[4] = { 0, 0, -1, 1 };  // Left, Right
-
-
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
             double bestValue = -1e9;
@@ -138,12 +132,12 @@ void valuePolicy(vector<vector<Grid>>& GameBoard, vector<vector<double>>& valueM
             // Check each direction and pick the one with highest value
             for (int action = 0; action < 4; action++) {
                 double actionValue = nextAction(r, c, action, valueMatrix, GameBoard);
-                //cout << "Action Value at " << (c ) << "," << (r) << " for action " << moves[action] << " is " << actionValue << endl;
                 // Pick action leading to highest value
                 if (actionValue > bestValue) {
                     bestValue = actionValue;
                     bestAction = action;
                 }
+                //Tie breaker, prefers up or left(left almost never happens in tiebreaker)
                 else if (fabs(actionValue - bestValue) < 1e-9) {
                     if (action % 2 == 0)
                         bestAction = action;
@@ -154,10 +148,9 @@ void valuePolicy(vector<vector<Grid>>& GameBoard, vector<vector<double>>& valueM
         }
     }
 }
-
+// Algorithm to perform value iteration over a given time horizon
 void valueIteration(int horizon, vector<vector<Grid>> GameBoard, vector<vector<double>>& valueMatrix, vector<vector<string>>& policy) {
     vector<vector<double>> newMatrix(COLS, vector<double>(ROWS, 0.0));
-
     //Initialize valueMatrix
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
@@ -167,11 +160,10 @@ void valueIteration(int horizon, vector<vector<Grid>> GameBoard, vector<vector<d
     for (int i = 1; i <= horizon; i++) {
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
-
                 double bestValue = -1e9;
-                for (int action = 0; action < 4; action++) {
-                    double expectedValue = nextAction(r, c, action, valueMatrix, GameBoard);
-					expectedValue = GameBoard[c][r].cost + (DISCOUNT_FACTOR * expectedValue);
+                for (int action = 0; action < 4; action++) {//For each action
+                    double expectedValue = nextAction(r, c, action, valueMatrix, GameBoard);//Expected value coming from nextAction
+					expectedValue = GameBoard[c][r].cost + (DISCOUNT_FACTOR * expectedValue);//Updated Expected action from rest of formula
                     bestValue = max(bestValue, expectedValue);
                 }
                 newMatrix[c][r] = bestValue;
